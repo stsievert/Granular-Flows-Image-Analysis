@@ -1,0 +1,187 @@
+
+Granular Flows Image Analysis
+Scott Sievert, 7/28/11
+
+Table of Contents:
+Basic Procedue using the program
+Warnings things to watch out for
+User-Defined Variables know what you’re changing
+Other Variables if you want to dig deeper
+Descriptions of each section What the *&@! does that do?
+
+Basic Procedure:
+	This program does two things. It can write configuration files and it can calculate velocity profiles of sand flowing down a slope (which is does by reading a config file). To make the program calculate a velocity profile, simply call the function calculateVelocities(apstring configpath) in main.cpp, then run the program. This method makes it easy to calculate many velocity profiles in one run: all you do is call that function with different configpaths.
+	To make it even easier, I made the config path out of a couple different parts – though you don't have to. I used an "input path," which is the folder/directory that the configuration file is in, a "fileIdentifier," which was a unique identifier for each set of images. So my configpath was something like this: "/Users/.../.../fileIdentier_config.txt". The fileIdentifier was typically a date, experiment number, and time: ie, 0727110320min would mean the 3rd run on 7/27/11, 20 minutes in.
+	You can edit these config files – that way, you don't have to recompile to just a couple values. I would suggest using a mass find-and-replace tool, to change multiple values at once. TextWrangler (for mac) is what I use. http://www.divlocsoft.com/ or http://www.multiplefindreplace.com/ or google "file find and replace" for windows.
+	I would also suggest using a tool to view graphs from CSV files. http://www.live-graph.org/ LiveGraph is a good Java (works anywhere) tool to use. This way, you can see velocity profiles *right away*, without having to open a spreadsheet application, copy and paste, etc...
+
+
+Warnings:
+	There are several things that may give you nonsense output or runtime/compile errors. I've made a partial list here – I'm sure I've either forgotten some or haven't found them all.
+
+
+- watch out for “/0” in filepaths. This is the "null" character, used to terminate strings, meaning your paths will be terminated early.
+
+
+List of User-Defined Variables (in the _config file), and what they do:
+pixelsPerUnit
+	This is how many pixels there are per unit. Usually, found with graph paper and ImageJ/ScionImage. It is used to convert pixels into real units.
+
+boxWidth
+	This is how wide you want each *horizontal* box in the grid. It is in real units, NOT pixels.
+
+numberOfVerticalBoxes
+	The number of vertical boxes you want. Because the flow goes downward through the image, it's assumed that you want more horiz. boxes than vertical – which is why you define them differently. If you want to change the program, look at the boxDimensions in the "Other Variables" section.
+
+timestep
+	The amount of time between each consecutive frame. Used in calculating velocity=(Xend - Xstart)/timestep, essentially.
+
+minPathLength= 5
+	This variable helps get rid of noise. It eliminates any paths that are shorter than minPathLength. In other words, it eliminates particles that aren't seen in more than minPathLength frames.
+
+maxVelocity.crossstream_component
+maxVelocity.downstream_component
+	This variable also helps get rid of noise, by eliminating particles that move too far in a given period (ie, when IDL screws up and makes a particle 'jump'). I used 1 for crossstream and 1000 for downstream with good results. You can tell if it's a good result by looking at the crossstream velocity graph. If it's flat and close to 0, good. If it's spiky and non-zero, bad.
+ 
+
+inputpath= /Users/scottsievert/Desktop/school/college/2011_Summer/granular_flow_research/Data/tracks_position_files/
+tracksFilename= 2406110240min_tracks.txt
+fileidentifier= 2406110240min
+
+
+List of Functions and what they do, their inputs & outputs.
+streamVector dotProduct(vector a, vector down, vector cross);
+	INPUT:
+		vector a : the position vector, in UNITS, that you want to find the position of / be dotted.
+		vector down: the unit vector parallel to the flow
+		vector cross: the unit vector perpendicular to the flow
+	OUTPUT:
+		streamVector __ : the streamVector (which is a struct w/ .downstream & .crossstream). This is the position, in UNITS, from the top of the flow & side of flow.
+
+
+vector convertToUnitsV(pixelsPerUnit pixelsPerUnit, vector vector);
+	INPUT:
+		pixelsPerUnit: a pixelsPerUnit struct (which contains .horiz, .top, .bottom).
+		vector : a vector from the top of the image somewhere, in PIXELS.
+	OUTPUT:
+		vector : the distance, in units, from the top of the leftBank (ie, (0,0)). This accounts for *small, vertical distortion.*
+
+streamVector calculateStreamVelocities(streamVector position_current, streamVector position_previous, long double timestep);
+	INPUT:
+		position_current:	current position as a streamVector.
+		position_previous:	the position in the last timeStep as a streamVector.
+		timestep:	the timestep between the frames.
+	OUTPUT:
+		streamVector ____ : a streamVector containing the velocities of the particles (current - prev) / timestep.
+
+streamVector calculateStreamPosition(long double x_current, long double y_current, line leftBank, line rightBank, vector unitVectorDown, vector unitVectorAcross, pixelsPerUnit pixelsPerUnit);
+	INPUTS: 
+		x_current, y_current : the x and y coords (pixels, from the top left corner) of the current particle.
+		leftBank: the leftBank / flow direction.
+		rightBank: decrepit. To be deleted.
+		unitVectorDown: unitVector parallel to flow.
+		unitVectorAcross: unitVector perp. to flow.
+		pixelsPerUnit: pixelsPerUnit struct.
+	OUTPUT:
+		streamVector ______ : particle position. Tilted banks, camera distortion both accounted for.
+
+
+
+dimensions findExtremes(int imgHeight, int imgWidth, line leftBank, line rightBank, vector unitVectorDown, vector unitVectorAcross, pixelsPerUnit pixelsPerUnit);
+	INPUT:
+		pretty much same inputs as for calc. stream position.
+	OUTPUT: a "dimensions" struct that has the minimum and maximum down & crossstream positions.
+
+
+void wait (int seconds);
+	Wait x seconds. Used for some error messages.
+
+
+List of other variables and what they do:
+// Misc.
+temp		: a holder variable used in some cases 
+junk		: used for inputting numbers that aren't used.
+i		: used as an index to arrays. array[i][j] if 2D.
+j		: used as an index in 2D arrays. array[i][j].
+
+// File I/O
+input 		: tracks.txt file outputted by the IDL code
+velocity		: velocity profile output.
+particleDataIN	: particleData.txt that contains all of the streamVelocities.
+particleDataOUT	: used for writing to particleData.txt
+
+// Particle information.
+particleData		: not used.
+currentParticle		: particle being inputted right now.
+previousParticle	: the last particle inputted.
+buffer[minPathLength] : a buffer used to hold particles that are less than 	minPathLength long.
+currentPathLength 	: how long is the track/particle being inputted?
+
+// Unit vectors.
+unitVectorDown	: a unit vector that is 1 UNIT long and points down the flow.
+unitVectorAcross : a unit vector that is 1 unit long and points across the flow. 
+
+// Grid stuff.
+boxDimensions	: width of box in UNITS in each direction.
+numberOfBoxes	: number of boxes in down/cross directions.
+extremes		: stream positions of the four corners.
+
+grid[][]		: the grid that holds info for the velocity profile. Init'd w/ 			  numberOfBoxes.
+currentBox		: an index to the currentBox. changes as we move the box around to find the particle
+
+
+Plain-english descriptions of what each section does:
+
+
+	Initializing grid
+		The grid needs to be initialized with a certain number of the boxes from the get go. To do this, I find the downstream and cross stream positions of the four corners (since no particle will be further away then them). Once I have the minimum and maximum downstream positions, I do numberOfBoxes = flowWidth/boxWidth, essentially. There's also a variable called boxDimensions: this holds how wide and tall each box.
+
+
+	Finding the average flow direction
+		This program finds the average flow direction for you. The algorithm is as follows:
+sum(Xmoved by one particle ) / sum(Ymoved by one particle ) to get the slope of the "banks." 
+
+In psuedo-code, it looks like this:
+if (moving AND same particle) {
+	leftBank.x = leftBank.x + currentParticle.x - previousParticle.x
+	leftBank.x = leftBank.x + currentParticle.x - previousParticle.x
+}
+leftBank.slope = leftBank.x / leftBank.y
+
+The "currentParticle.x - previousParticle.x," added up over the all the particlesPath length gives the total change in x.
+
+The slope is x/y because you want to know how far over the flow goes as it goes down the picture.
+
+It's the sum of all the total distances moved by each particle. The leftBank is than put at the upper left corner of the image, and the bottom at the (imgHeight*slope, imgHeight) position. 
+
+	Calculating position
+		Calculating the position is the trickiest part. Calculating the position has to account for tilted flow and camera distortion.
+		Camera Distortion:
+		Camera distortion is negligible in the horizontal direction. It's moderate in the vertical direction, because it's tricky to get the camera perfectly perpendicular to the board. Because it's moderate (<10%. I measured), I assume it's linear. That makes the calculation easier.
+	Let's define a function. It'll be how many units each pixel is.
+
+	λ(y) = units/pixel. This is a function of y.
+	λ(y) = y*[λ(bottom) – λ(top)]/height   + λ(bottom) 
+It's a pretty basic linear function. Let's call [λ(bottom) – λ(top)]/height  = m for readability.
+
+	Now, an integral:
+∫ λ(y) dy = distance in units
+= ∫ m*y   + λ(bottom) dy
+= 0.5*m*y^2 + y*λ(bottom) = distance in real units.
+	
+So that's accounting for distortion. That us the distance in real units from y=0, the top of the picture.
+
+Now, let's account for slanted banks. We'll define two unit vectors, one parallel to the flow, one perpendicular. A dot product with each unit vector and the particle position vector will give us the cross and downstream positions. 
+
+
+
+	Setting up the grid
+		Since we know the maximum positions of any particle (the corners, found by the findExtremes function while iniatlizing the grid), setting up the grid is easy. We know the box width (boxDimensions), so we set the first box to the minimum down & cross stream position and add boxDimensions to the previous box.
+
+
+
+	Calculating averages
+		To calculate all of the averages, this section reads from the particleData.txt file.
+		The trickiest part in calculating the averages is finding the right box to put the particle in. To do this, we (a) make a guess, something like (int)particlePosition/boxWidth then (b) put that particle in the box or look in the box to left or right. It looks complicated in the code because you need 3 big if-statements. Then, calculating the averages is easy. You sum up all of the velocities, increment the box.numberOfPoints, and continue.
+	
+	
